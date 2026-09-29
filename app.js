@@ -96,4 +96,225 @@ app.get("/podcasts/:id", (req, res) => {
   }
 
   res.status(200).json(podcast);
+
+
 });
+// Memeriksa apakah nilai string kosong
+const isEmpty = (value) => {
+  return value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "");
+};
+
+
+// POST /podcasts
+// Menambahkan data podcast baru
+app.post("/podcasts", (req, res) => {
+  const {
+    judul,
+    host,
+    kategori,
+    jumlahEpisode,
+    bahasa
+  } = req.body;
+
+  // Validasi field wajib
+  if (
+    isEmpty(judul) ||
+    isEmpty(host) ||
+    isEmpty(kategori)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Field judul, host, dan kategori wajib diisi",
+      data: null
+    });
+  }
+
+  // Validasi tipe jumlahEpisode jika dikirim
+  if (
+    jumlahEpisode !== undefined &&
+    (typeof jumlahEpisode !== "number" || jumlahEpisode < 0)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "jumlahEpisode harus berupa angka yang valid",
+      data: null
+    });
+  }
+
+  // Membuat data baru
+  const podcastBaru = {
+    id: nextId++,
+    judul: judul.trim(),
+    host: host.trim(),
+    kategori: kategori.trim()
+  };
+
+  if (jumlahEpisode !== undefined) {
+    podcastBaru.jumlahEpisode = jumlahEpisode;
+  }
+
+  if (bahasa !== undefined) {
+    podcastBaru.bahasa = bahasa;
+  }
+
+  podcasts.push(podcastBaru);
+
+  res.status(201).json({
+    status: "success",
+    message: "Podcast berhasil ditambahkan",
+    data: podcastBaru
+  });
+});
+
+// PUT /podcasts/:id
+// Mengubah seluruh data podcast
+app.put("/podcasts/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  const index = podcasts.findIndex(
+    (podcast) => podcast.id === id
+  );
+
+  if (index === -1) {
+    return res.status(404).json({
+      status: "error",
+      message: "Data podcast tidak ditemukan",
+      data: null
+    });
+  }
+
+  const {
+    judul,
+    host,
+    kategori,
+    jumlahEpisode,
+    bahasa
+  } = req.body;
+
+  // Validasi field wajib
+  if (
+    isEmpty(judul) ||
+    isEmpty(host) ||
+    isEmpty(kategori)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Field judul, host, dan kategori wajib diisi",
+      data: null
+    });
+  }
+
+  // Validasi jumlahEpisode jika dikirim
+  if (
+    jumlahEpisode !== undefined &&
+    (typeof jumlahEpisode !== "number" || jumlahEpisode < 0)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "jumlahEpisode harus berupa angka yang valid",
+      data: null
+    });
+  }
+
+  // PUT mengganti data lama secara penuh
+  const podcastDiubah = {
+    id,
+    judul: judul.trim(),
+    host: host.trim(),
+    kategori: kategori.trim()
+  };
+
+  if (jumlahEpisode !== undefined) {
+    podcastDiubah.jumlahEpisode = jumlahEpisode;
+  }
+
+  if (bahasa !== undefined) {
+    podcastDiubah.bahasa = bahasa;
+  }
+
+  podcasts[index] = podcastDiubah;
+
+  res.status(200).json({
+    status: "success",
+    message: "Podcast berhasil diperbarui",
+    data: podcastDiubah
+  });
+});
+
+// PUT /podcasts/:id
+// Mengubah seluruh data podcast
+app.put("/podcasts/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  const index = podcasts.findIndex(
+    (podcast) => podcast.id === id
+  );
+
+  if (index === -1) {
+    return res.status(404).json({
+      status: "error",
+      message: "Data podcast tidak ditemukan",
+      data: null
+    });
+  }
+
+  const {
+    judul,
+    host,
+    kategori,
+    jumlahEpisode,
+    bahasa
+  } = req.body;
+
+  // Validasi field wajib
+  if (
+    isEmpty(judul) ||
+    isEmpty(host) ||
+    isEmpty(kategori)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Field judul, host, dan kategori wajib diisi",
+      data: null
+    });
+  }
+
+  // Validasi jumlahEpisode jika dikirim
+  if (
+    jumlahEpisode !== undefined &&
+    (typeof jumlahEpisode !== "number" || jumlahEpisode < 0)
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "jumlahEpisode harus berupa angka yang valid",
+      data: null
+    });
+  }
+
+  // PUT mengganti data lama secara penuh
+  const podcastDiubah = {
+    id,
+    judul: judul.trim(),
+    host: host.trim(),
+    kategori: kategori.trim()
+  };
+
+  if (jumlahEpisode !== undefined) {
+    podcastDiubah.jumlahEpisode = jumlahEpisode;
+  }
+
+  if (bahasa !== undefined) {
+    podcastDiubah.bahasa = bahasa;
+  }
+
+  podcasts[index] = podcastDiubah;
+
+  res.status(200).json({
+    status: "success",
+    message: "Podcast berhasil diperbarui",
+    data: podcastDiubah
+  });
+});
+
