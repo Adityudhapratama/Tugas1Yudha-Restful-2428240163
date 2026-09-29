@@ -1,0 +1,25 @@
+{
+  "name": "tugas1-restful-2428240163",
+  "version": "1.0.0",
+  "description": "RESTful API Platform Audio - Podcast untuk Tugas 1 SI5C",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [
+    "restful-api",
+    "express",
+    "podcast",
+    "si5c"
+  ],
+  "author": "Adit Yudha Pratama",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
