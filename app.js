@@ -318,3 +318,40 @@ app.put("/podcasts/:id", (req, res) => {
   });
 });
 
+// DELETE /podcasts/:id
+// Menghapus data podcast berdasarkan ID
+app.delete("/podcasts/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  const index = podcasts.findIndex(
+    (podcast) => podcast.id === id
+  );
+
+  if (index === -1) {
+    return res.status(404).json({
+      status: "error",
+      message: "Data podcast tidak ditemukan",
+      data: null
+    });
+  }
+
+  const podcastDihapus = podcasts[index];
+
+  podcasts.splice(index, 1);
+
+  res.status(200).json({
+    status: "success",
+    message: "Podcast berhasil dihapus",
+    data: podcastDihapus
+  });
+});
+
+// Catch-all untuk endpoint yang tidak ditemukan
+app.use((req, res) => {
+  res.status(404).json({
+    status: "error",
+    message: "Endpoint tidak ditemukan",
+    data: null
+  });
+});
+
