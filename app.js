@@ -355,3 +355,31 @@ app.use((req, res) => {
   });
 });
 
+// Error handler untuk JSON yang tidak valid
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({
+      status: "error",
+      message: "Format JSON tidak valid",
+      data: null
+    });
+  }
+
+  console.error(err);
+
+  res.status(500).json({
+    status: "error",
+    message: "Terjadi kesalahan pada server",
+    data: null
+  });
+});
+
+// Menjalankan server hanya saat bukan production
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Server berjalan di http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
+
