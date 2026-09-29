@@ -62,3 +62,38 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 module.exports = app;
+
+// GET /podcasts
+// Menampilkan seluruh data podcast
+// Bisa menggunakan filter kategori
+app.get("/podcasts", (req, res) => {
+  const { kategori } = req.query;
+
+  if (kategori) {
+    const hasil = podcasts.filter(
+      (podcast) => podcast.kategori.toLowerCase() === kategori.toLowerCase()
+    );
+
+    return res.status(200).json(hasil);
+  }
+
+  res.status(200).json(podcasts);
+});
+
+// GET /podcasts/:id
+// Menampilkan satu podcast berdasarkan ID
+app.get("/podcasts/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  const podcast = podcasts.find((item) => item.id === id);
+
+  if (!podcast) {
+    return res.status(404).json({
+      status: "error",
+      message: "Data podcast tidak ditemukan",
+      data: null
+    });
+  }
+
+  res.status(200).json(podcast);
+});
