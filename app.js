@@ -1,385 +1,169 @@
+// impor express
 const express = require("express");
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware untuk membaca request body dalam format JSON
+// middleware agar body JSON bisa dibaca lewat req.body
 app.use(express.json());
 
-// Data podcast disimpan sementara di memory
+// ===== DATA (array di memori, tanpa database) =====
+// Resource: podcasts (Topik 37 - Platform Audio)
 let podcasts = [
-  {
-    id: 1,
-    judul: "Ngobrol Koding",
-    host: "Dimas Aditya",
-    kategori: "pendidikan",
-    jumlahEpisode: 48,
-    bahasa: "Indonesia"
-  },
-  {
-    id: 2,
-    judul: "Cerita Teknologi",
-    host: "Raka Pratama",
-    kategori: "teknologi",
-    jumlahEpisode: 32,
-    bahasa: "Indonesia"
-  },
-  {
-    id: 3,
-    judul: "Belajar Bareng",
-    host: "Sinta Maharani",
-    kategori: "pendidikan",
-    jumlahEpisode: 25,
-    bahasa: "Indonesia"
-  }
+  { id: 1, judul: "Ngobrol Koding", host: "Dimas Aditya", kategori: "pendidikan", jumlahEpisode: 48, bahasa: "Indonesia" },
+  { id: 2, judul: "Cerita Startup", host: "Rani Anggraini", kategori: "bisnis", jumlahEpisode: 30, bahasa: "Indonesia" },
+  { id: 3, judul: "Tech Talk Weekly", host: "John Carter", kategori: "teknologi", jumlahEpisode: 112, bahasa: "Inggris" },
 ];
+let nextId = 4; // id berikutnya, bertambah otomatis
 
-let nextId = 4;
+// ===== FUNGSI BANTU =====
+// Response error berformat { status, message, data }
+function kirimError(res, kode, pesan) {
+  return res.status(kode).json({ status: "error", message: pesan, data: null });
+}
 
-// Endpoint utama
+// Validasi body POST/PUT. Return pesan error, atau null jika valid
+function validasi(body) {
+  const { judul, host, kategori, jumlahEpisode, bahasa } = body || {};
+  const kosong = (v) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+
+  // field wajib: judul, host, kategori
+  if (kosong(judul)) return "Field judul wajib diisi";
+  if (kosong(host)) return "Field host wajib diisi";
+  if (kosong(kategori)) return "Field kategori wajib diisi";
+  if (typeof judul !== "string" || typeof host !== "string" || typeof kategori !== "string") {
+    return "Field judul, host, dan kategori harus berupa string";
+  }
+  // field opsional: jika dikirim, tipenya harus benar
+  if (!kosong(jumlahEpisode) && (typeof jumlahEpisode !== "number" || Number.isNaN(jumlahEpisode))) {
+    return "Field jumlahEpisode harus berupa angka";
+  }
+  if (!kosong(bahasa) && typeof bahasa !== "string") {
+    return "Field bahasa harus berupa string";
+  }
+  return null;
+}
+
+// ===== ROUTES =====
+
+// GET /
+// Info API: nama, NPM, nomor topik, daftar endpoint
 app.get("/", (req, res) => {
   res.json({
     nama: "Adit Yudha Pratama",
     npm: "2428240163",
     topik: 37,
-    resource: "/podcasts",
-    endpoints: {
-      getAll: "GET /podcasts",
-      getById: "GET /podcasts/:id",
-      create: "POST /podcasts",
-      update: "PUT /podcasts/:id",
-      delete: "DELETE /podcasts/:id",
-      filter: "GET /podcasts?kategori=pendidikan"
-    }
+    deskripsi: "RESTful API Platform Audio - Podcast",
+    endpoint: [
+      "GET /podcasts",
+      "GET /podcasts/:id",
+      "GET /podcasts?kategori=pendidikan",
+      "POST /podcasts",
+      "PUT /podcasts/:id",
+      "DELETE /podcasts/:id",
+    ],
   });
 });
 
-// Menjalankan server
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`Server berjalan di http://localhost:${PORT}`);
-  });
-}
-
-module.exports = app;
-
 // GET /podcasts
-// Menampilkan seluruh data podcast
-// Bisa menggunakan filter kategori
+// GET /podcasts?kategori=pendidikan  (filter lewat req.query)
 app.get("/podcasts", (req, res) => {
   const { kategori } = req.query;
-
   if (kategori) {
+    // filter tidak membedakan huruf besar/kecil; hasil boleh array kosong []
     const hasil = podcasts.filter(
-      (podcast) => podcast.kategori.toLowerCase() === kategori.toLowerCase()
+      (p) => p.kategori.toLowerCase() === String(kategori).toLowerCase()
     );
-
     return res.status(200).json(hasil);
   }
-
   res.status(200).json(podcasts);
 });
 
-// GET /podcasts/:id
-// Menampilkan satu podcast berdasarkan ID
+// GET /podcasts/1
 app.get("/podcasts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const podcast = podcasts.find((item) => item.id === id);
-
+  const id = parseInt(req.params.id);
+  const podcast = podcasts.find((p) => p.id === id);
   if (!podcast) {
-    return res.status(404).json({
-      status: "error",
-      message: "Data podcast tidak ditemukan",
-      data: null
-    });
+    return kirimError(res, 404, `Data dengan id ${req.params.id} tidak ditemukan`);
   }
-
   res.status(200).json(podcast);
-
-
 });
-// Memeriksa apakah nilai string kosong
-const isEmpty = (value) => {
-  return value === undefined ||
-    value === null ||
-    (typeof value === "string" && value.trim() === "");
-};
-
 
 // POST /podcasts
-// Menambahkan data podcast baru
+// Body: { "judul": "Ngobrol Koding", "host": "Dimas Aditya", "kategori": "pendidikan", "jumlahEpisode": 48, "bahasa": "Indonesia" }
 app.post("/podcasts", (req, res) => {
-  const {
-    judul,
-    host,
-    kategori,
-    jumlahEpisode,
-    bahasa
-  } = req.body;
+  // validasi: field wajib kosong -> 400
+  const pesan = validasi(req.body);
+  if (pesan) return kirimError(res, 400, pesan);
 
-  // Validasi field wajib
-  if (
-    isEmpty(judul) ||
-    isEmpty(host) ||
-    isEmpty(kategori)
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "Field judul, host, dan kategori wajib diisi",
-      data: null
-    });
-  }
+  const { judul, host, kategori, jumlahEpisode, bahasa } = req.body;
+  const baru = { id: nextId++, judul, host, kategori, jumlahEpisode, bahasa };
+  podcasts.push(baru);
 
-  // Validasi tipe jumlahEpisode jika dikirim
-  if (
-    jumlahEpisode !== undefined &&
-    (typeof jumlahEpisode !== "number" || jumlahEpisode < 0)
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "jumlahEpisode harus berupa angka yang valid",
-      data: null
-    });
-  }
-
-  // Membuat data baru
-  const podcastBaru = {
-    id: nextId++,
-    judul: judul.trim(),
-    host: host.trim(),
-    kategori: kategori.trim()
-  };
-
-  if (jumlahEpisode !== undefined) {
-    podcastBaru.jumlahEpisode = jumlahEpisode;
-  }
-
-  if (bahasa !== undefined) {
-    podcastBaru.bahasa = bahasa;
-  }
-
-  podcasts.push(podcastBaru);
-
+  // berhasil -> 201 + data yang baru dibuat
   res.status(201).json({
     status: "success",
-    message: "Podcast berhasil ditambahkan",
-    data: podcastBaru
+    message: "Data berhasil ditambahkan",
+    data: baru,
   });
 });
 
-// PUT /podcasts/:id
-// Mengubah seluruh data podcast
+// PUT /podcasts/1
+// Body: { "judul": "Ngobrol Koding", "host": "Dimas Aditya", "kategori": "pendidikan", "jumlahEpisode": 50, "bahasa": "Indonesia" }
 app.put("/podcasts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const index = podcasts.findIndex(
-    (podcast) => podcast.id === id
-  );
-
+  const id = parseInt(req.params.id);
+  const index = podcasts.findIndex((p) => p.id === id);
   if (index === -1) {
-    return res.status(404).json({
-      status: "error",
-      message: "Data podcast tidak ditemukan",
-      data: null
-    });
+    return kirimError(res, 404, `Data dengan id ${req.params.id} tidak ditemukan`);
   }
 
-  const {
-    judul,
-    host,
-    kategori,
-    jumlahEpisode,
-    bahasa
-  } = req.body;
+  const pesan = validasi(req.body);
+  if (pesan) return kirimError(res, 400, pesan);
 
-  // Validasi field wajib
-  if (
-    isEmpty(judul) ||
-    isEmpty(host) ||
-    isEmpty(kategori)
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "Field judul, host, dan kategori wajib diisi",
-      data: null
-    });
-  }
-
-  // Validasi jumlahEpisode jika dikirim
-  if (
-    jumlahEpisode !== undefined &&
-    (typeof jumlahEpisode !== "number" || jumlahEpisode < 0)
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "jumlahEpisode harus berupa angka yang valid",
-      data: null
-    });
-  }
-
-  // PUT mengganti data lama secara penuh
-  const podcastDiubah = {
-    id,
-    judul: judul.trim(),
-    host: host.trim(),
-    kategori: kategori.trim()
-  };
-
-  if (jumlahEpisode !== undefined) {
-    podcastDiubah.jumlahEpisode = jumlahEpisode;
-  }
-
-  if (bahasa !== undefined) {
-    podcastDiubah.bahasa = bahasa;
-  }
-
-  podcasts[index] = podcastDiubah;
+  const { judul, host, kategori, jumlahEpisode, bahasa } = req.body;
+  // penggantian penuh: semua field diganti, id tetap
+  podcasts[index] = { id, judul, host, kategori, jumlahEpisode, bahasa };
 
   res.status(200).json({
     status: "success",
-    message: "Podcast berhasil diperbarui",
-    data: podcastDiubah
+    message: "Data berhasil diubah",
+    data: podcasts[index],
   });
 });
 
-// PUT /podcasts/:id
-// Mengubah seluruh data podcast
-app.put("/podcasts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const index = podcasts.findIndex(
-    (podcast) => podcast.id === id
-  );
-
-  if (index === -1) {
-    return res.status(404).json({
-      status: "error",
-      message: "Data podcast tidak ditemukan",
-      data: null
-    });
-  }
-
-  const {
-    judul,
-    host,
-    kategori,
-    jumlahEpisode,
-    bahasa
-  } = req.body;
-
-  // Validasi field wajib
-  if (
-    isEmpty(judul) ||
-    isEmpty(host) ||
-    isEmpty(kategori)
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "Field judul, host, dan kategori wajib diisi",
-      data: null
-    });
-  }
-
-  // Validasi jumlahEpisode jika dikirim
-  if (
-    jumlahEpisode !== undefined &&
-    (typeof jumlahEpisode !== "number" || jumlahEpisode < 0)
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "jumlahEpisode harus berupa angka yang valid",
-      data: null
-    });
-  }
-
-  // PUT mengganti data lama secara penuh
-  const podcastDiubah = {
-    id,
-    judul: judul.trim(),
-    host: host.trim(),
-    kategori: kategori.trim()
-  };
-
-  if (jumlahEpisode !== undefined) {
-    podcastDiubah.jumlahEpisode = jumlahEpisode;
-  }
-
-  if (bahasa !== undefined) {
-    podcastDiubah.bahasa = bahasa;
-  }
-
-  podcasts[index] = podcastDiubah;
-
-  res.status(200).json({
-    status: "success",
-    message: "Podcast berhasil diperbarui",
-    data: podcastDiubah
-  });
-});
-
-// DELETE /podcasts/:id
-// Menghapus data podcast berdasarkan ID
+// DELETE /podcasts/1
 app.delete("/podcasts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const index = podcasts.findIndex(
-    (podcast) => podcast.id === id
-  );
-
+  const id = parseInt(req.params.id);
+  const index = podcasts.findIndex((p) => p.id === id);
   if (index === -1) {
-    return res.status(404).json({
-      status: "error",
-      message: "Data podcast tidak ditemukan",
-      data: null
-    });
+    return kirimError(res, 404, `Data dengan id ${req.params.id} tidak ditemukan`);
   }
-
-  const podcastDihapus = podcasts[index];
 
   podcasts.splice(index, 1);
-
   res.status(200).json({
     status: "success",
-    message: "Podcast berhasil dihapus",
-    data: podcastDihapus
+    message: `Data podcast dengan id ${id} berhasil dihapus`,
+    data: null,
   });
 });
 
-// Catch-all untuk endpoint yang tidak ditemukan
+// ===== MIDDLEWARE AKHIR (harus setelah semua route) =====
+
+// catch-all 404 untuk route yang tidak terdaftar
 app.use((req, res) => {
-  res.status(404).json({
-    status: "error",
-    message: "Endpoint tidak ditemukan",
-    data: null
-  });
+  kirimError(res, 404, "Endpoint tidak ditemukan");
 });
 
-// Error handler untuk JSON yang tidak valid
+// error handler: JSON rusak dan error lain tetap dibalas JSON, bukan HTML
 app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-    return res.status(400).json({
-      status: "error",
-      message: "Format JSON tidak valid",
-      data: null
-    });
+  if (err.type === "entity.parse.failed") {
+    return kirimError(res, 400, "Format JSON tidak valid");
   }
-
-  console.error(err);
-
-  res.status(500).json({
-    status: "error",
-    message: "Terjadi kesalahan pada server",
-    data: null
-  });
+  kirimError(res, 500, "Terjadi kesalahan pada server");
 });
 
-// Menjalankan server hanya saat bukan production
+// ===== JALANKAN SERVER =====
+const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`Server berjalan di http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () => console.log(`Server berjalan di http://localhost:${PORT}`));
 }
-
+// diekspor agar bisa berjalan di Vercel (serverless)
 module.exports = app;
-
